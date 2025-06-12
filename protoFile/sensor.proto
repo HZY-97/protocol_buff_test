@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package sensor;
+
+// 定义单个激光点的数据格式
+message LidarPoint {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  uint32 intensity = 4;
+  uint32 tag = 5;
+  uint32 line = 6;
+  uint32 offset_time = 7;
+}
+
+// 定义激光头传感器的一帧数据格式
+message LidarData {
+  int64 timestamp = 1;
+  string sensor_id = 2;
+  uint32 point_num = 3;
+  repeated LidarPoint points = 4;
+}
+
+// 定义LidarData的集合，用于存储多个帧数据
+message LidarDataBag {
+  repeated LidarData frames = 1;
+}
