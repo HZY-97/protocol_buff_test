@@ -25,3 +25,24 @@ message LidarData {
 message LidarDataBag {
   repeated LidarData frames = 1;
 }
+
+// imu数据格式
+message ImuData {
+  int64 timestamp = 1;
+  string sensor_id = 2;
+  float acc_x = 3;
+  float acc_y = 4;
+  float acc_z = 5;
+  float gyro_x = 6;
+  float gyro_y = 7;
+  float gyro_z = 8;
+}
+
+message ImuDataBag {
+  repeated ImuData imu_data = 1;
+}
+
+message GroupBag {
+  LidarDataBag lidar_data_bag = 1;
+  ImuDataBag imu_data_bag = 2;
+}
