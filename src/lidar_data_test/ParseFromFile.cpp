@@ -56,7 +56,7 @@ int main() {
     return 1;
   }
 
-  sensor::LidarDataBag data_bag;
+  sensor::LivoxPointCloudBag data_bag;
   if (!data_bag.ParseFromIstream(&input)) {
     std::cerr << "Error: Failed to parse data from " << input_filename
               << std::endl;
@@ -82,7 +82,7 @@ int main() {
 
   // ===== 遍历所有帧并保存为PCD =====
   for (int frame_idx = 0; frame_idx < actual_frame_count; ++frame_idx) {
-    const sensor::LidarData &frame = data_bag.frames(frame_idx);
+    const sensor::LivoxPointCloud &frame = data_bag.frames(frame_idx);
     const size_t point_count = frame.points_size();
     total_points += point_count;
 
@@ -95,13 +95,13 @@ int main() {
 
     // 填充点云数据 (只提取XYZ和强度)
     for (int pt_idx = 0; pt_idx < point_count; ++pt_idx) {
-      const sensor::LidarPoint &point = frame.points(pt_idx);
+      const sensor::LivoxPoint &point = frame.points(pt_idx);
       pcl::PointXYZI &pcl_point = cloud.points[pt_idx];
-      pcl_point.x = point.x();
-      pcl_point.y = point.y();
-      pcl_point.z = point.z();
+      pcl_point.x = point.point().x();
+      pcl_point.y = point.point().y();
+      pcl_point.z = point.point().z();
       pcl_point.intensity =
-          static_cast<float>(point.intensity()); // 将uint32转换为float
+          static_cast<float>(point.point().intensity()); // 将uint32转换为float
     }
 
     // 生成文件名 (使用帧索引)

@@ -28,9 +28,11 @@ int random_int(mt19937 &gen, int min_val, int max_val) {
 }
 
 // 生成一帧激光雷达数据
-sensor::LidarData generate_lidar_frame(mt19937 &gen, const string &sensor_id,
-                                       int64_t timestamp, int point_count) {
-  sensor::LidarData lidar_data;
+sensor::LivoxPointCloud generate_lidar_frame(mt19937 &gen,
+                                             const string &sensor_id,
+                                             int64_t timestamp,
+                                             int point_count) {
+  sensor::LivoxPointCloud lidar_data;
   lidar_data.set_timestamp(timestamp);
   lidar_data.set_sensor_id(sensor_id);
   lidar_data.set_point_num(point_count);
@@ -42,34 +44,37 @@ sensor::LidarData generate_lidar_frame(mt19937 &gen, const string &sensor_id,
     float distance = random_float(gen, 1.0f, 20.0f);
     float height = random_float(gen, -1.0f, 1.0f);
 
+    sensor::PointXYZI tmp_p_xyzi;
+
     // 模拟不同形状的点云
     int pattern = i % 4;
     switch (pattern) {
     case 0: // 标准点云
-      point->set_x(distance * cos(angle));
-      point->set_y(distance * sin(angle));
-      point->set_z(height);
+      tmp_p_xyzi.set_x(distance * cos(angle));
+      tmp_p_xyzi.set_y(distance * sin(angle));
+      tmp_p_xyzi.set_z(height);
       break;
     case 1: // 方型障碍物
-      point->set_x(cos(angle) < 0 ? -random_float(gen, 2.0f, 5.0f)
-                                  : random_float(gen, 2.0f, 5.0f));
-      point->set_y(sin(angle) < 0 ? -random_float(gen, 2.0f, 5.0f)
-                                  : random_float(gen, 2.0f, 5.0f));
-      point->set_z(0);
+      tmp_p_xyzi.set_x(cos(angle) < 0 ? -random_float(gen, 2.0f, 5.0f)
+                                      : random_float(gen, 2.0f, 5.0f));
+      tmp_p_xyzi.set_y(sin(angle) < 0 ? -random_float(gen, 2.0f, 5.0f)
+                                      : random_float(gen, 2.0f, 5.0f));
+      tmp_p_xyzi.set_z(0);
       break;
     case 2: // 圆柱形障碍物
-      point->set_x(3 * cos(angle));
-      point->set_y(3 * sin(angle));
-      point->set_z(height);
+      tmp_p_xyzi.set_x(3 * cos(angle));
+      tmp_p_xyzi.set_y(3 * sin(angle));
+      tmp_p_xyzi.set_z(height);
       break;
     default: // 地面
-      point->set_x(distance * cos(angle));
-      point->set_y(distance * sin(angle));
-      point->set_z(-0.5);
+      tmp_p_xyzi.set_x(distance * cos(angle));
+      tmp_p_xyzi.set_y(distance * sin(angle));
+      tmp_p_xyzi.set_z(-0.5);
       break;
     }
 
-    point->set_intensity(random_int(gen, 0, 255));
+    tmp_p_xyzi.set_intensity(random_int(gen, 0, 255));
+    point->set_allocated_point(&tmp_p_xyzi);
     point->set_tag(random_int(gen, 0, 5));
     point->set_line(random_int(gen, 0, 63));
     point->set_offset_time(i * 100); // 100ns per point
@@ -223,7 +228,7 @@ int main() {
   // 生成数据 - 每10帧点云保存为一个文件
   for (int file_idx = 0; file_idx < total_files; file_idx++) {
     // 创建GroupBag
-    sensor::GroupBag group_bag;
+    sensor::LivoxGroupBag group_bag;
 
     // 创建LidarDataBag和ImuDataBag
     auto *lidar_data_bag = group_bag.mutable_lidar_data_bag();
@@ -251,7 +256,7 @@ int main() {
           static_cast<int64_t>(lidar_idx * lidar_frame_interval * 1e9);
 
       // 生成一帧激光雷达数据
-      sensor::LidarData lidar_frame = generate_lidar_frame(
+      sensor::LivoxPointCloud lidar_frame = generate_lidar_frame(
           gen, lidar_id, lidar_timestamp, lidar_points_per_frame);
 
       // 添加到激光雷达数据包

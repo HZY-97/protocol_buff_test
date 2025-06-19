@@ -2,30 +2,6 @@ syntax = "proto3";
 
 package sensor;
 
-// 定义单个激光点的数据格式
-message LidarPoint {
-  float x = 1;
-  float y = 2;
-  float z = 3;
-  uint32 intensity = 4;
-  uint32 tag = 5;
-  uint32 line = 6;
-  uint32 offset_time = 7;
-}
-
-// 定义激光头传感器的一帧数据格式
-message LidarData {
-  int64 timestamp = 1;
-  string sensor_id = 2;
-  uint32 point_num = 3;
-  repeated LidarPoint points = 4;
-}
-
-// 定义LidarData的集合，用于存储多个帧数据
-message LidarDataBag {
-  repeated LidarData frames = 1;
-}
-
 // imu数据格式
 message ImuData {
   int64 timestamp = 1;
@@ -42,7 +18,36 @@ message ImuDataBag {
   repeated ImuData imu_data = 1;
 }
 
-message GroupBag {
-  LidarDataBag lidar_data_bag = 1;
+// 点xyzi
+message PointXYZI {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  uint32 intensity = 4;
+}
+
+// 定义单个激光点的数据格式
+message LivoxPoint {
+  PointXYZI point = 1;
+  uint32 tag = 2;
+  uint32 line = 3;
+  uint32 offset_time = 4;
+}
+
+// 定义激光头传感器的一帧数据格式
+message LivoxPointCloud {
+  int64 timestamp = 1;
+  string sensor_id = 2;
+  uint32 point_num = 3;
+  repeated LivoxPoint points = 4;
+}
+
+// 定义LidarData的集合，用于存储多个帧数据
+message LivoxPointCloudBag {
+  repeated LivoxPointCloud frames = 1;
+}
+
+message LivoxGroupBag {
+  LivoxPointCloudBag lidar_data_bag = 1;
   ImuDataBag imu_data_bag = 2;
 }
