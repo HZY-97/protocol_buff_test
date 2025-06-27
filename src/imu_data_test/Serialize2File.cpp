@@ -5,6 +5,8 @@
 #include <iostream>
 #include <random>
 
+#include "zstd.h"
+
 using namespace std;
 
 int main() {
@@ -149,6 +151,51 @@ int main() {
     return 1;
   }
   output.close();
+
+  std::string imu_data_str;
+  if (!data_bag.SerializeToString(&imu_data_str)) {
+    cerr << "Failed to write IMU data to " << filename << endl;
+    return 1;
+  }
+  const string filename_zstd =
+      "/home/siasun/code/Test/protocol_buff_test/imu_data.zst";
+
+  // 3. 压缩数据
+  auto start_compress = std::chrono::high_resolution_clock::now();
+
+  // 计算压缩所需的最大空间
+  size_t compress_bound = ZSTD_compressBound(imu_data_str.size());
+  std::vector<char> compressed_data(compress_bound);
+
+  // 执行压缩（级别3平衡速度和压缩率）
+  size_t compressed_size =
+      ZSTD_compress(compressed_data.data(), compress_bound, imu_data_str.data(),
+                    imu_data_str.size(), 3);
+
+  auto end_compress = std::chrono::high_resolution_clock::now();
+
+  // 检查压缩错误
+  if (ZSTD_isError(compressed_size)) {
+    std::cerr << "压缩失败: " << ZSTD_getErrorName(compressed_size)
+              << std::endl;
+    return 1;
+  }
+
+  // 调整向量大小到实际压缩大小
+  compressed_data.resize(compressed_size);
+
+  // 4. 保存压缩文件
+  std::ofstream comp_file(filename_zstd, std::ios::binary);
+  comp_file.write(compressed_data.data(), compressed_data.size());
+  comp_file.close();
+  cout << "Save Compressed File Success" << endl;
+
+  std::cout << "压缩耗时: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   end_compress - start_compress)
+                   .count()
+            << " ms\n";
+  std::cout << "压缩文件大小: " << compressed_size << " 字节\n";
 
   // 性能统计
   auto total_time = chrono::duration_cast<chrono::milliseconds>(

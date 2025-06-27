@@ -25,3 +25,14 @@ target_include_directories(common_proto PUBLIC
 
 # 链接 Protobuf 库
 target_link_libraries(common_proto PRIVATE ${Protobuf_LIBRARIES})
+
+install(
+    TARGETS common_proto
+    DESTINATION .
+)
+
+set_target_properties(
+    common_proto
+    PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+)

@@ -1,4 +1,5 @@
 #include "sensor.pb.h"
+#include "zstd.h"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -13,7 +14,7 @@ int main() {
   // 创建数据容器
   sensor::LivoxPointCloudBag data_bag;
   const string sensor_id = "lidar_1";
-  const int frames_count = 2000;      // 减少帧数用于测试
+  const int frames_count = 80;        // 减少帧数用于测试
   const int points_per_frame = 20000; // 减少点数用于测试
 
   // 初始化随机数生成器
@@ -47,26 +48,25 @@ int main() {
     vector<sensor::LivoxPoint> temp_points;
     temp_points.reserve(points_per_frame);
 
+    // 修改后的点生成逻辑
     for (int pt_idx = 0; pt_idx < points_per_frame; pt_idx++) {
-      sensor::PointXYZI point;
-      sensor::LivoxPoint livox_point;
+      sensor::LivoxPoint *new_point = frame->add_points(); // 直接添加到帧中
+      sensor::PointXYZI *point = new sensor::PointXYZI(); // 在堆上创建
 
-      // 在递增的立方体范围内生成随机点
+      // 设置点属性
+      point->set_x(dist(gen));
+      point->set_y(dist(gen));
+      point->set_z(dist(gen));
+      point->set_intensity(static_cast<uint32_t>(
+          abs(point->x() * point->y() * point->z()) * 255 * 10));
 
-      point.set_x(dist(gen)); // X坐标在[-size/2, size/2]范围内
-      point.set_y(dist(gen)); // Y坐标在[-size/2, size/2]范围内
-      point.set_z(dist(gen)); // Z坐标在[-size/2, size/2]范围内
+      // 转移所有权给 new_point
+      new_point->set_allocated_point(point);
 
-      point.set_intensity(static_cast<uint32_t>(
-          abs(point.x() * point.y() * point.z()) * 255 * 10 // 基于位置计算强度
-          ));
-      livox_point.set_allocated_point(&point);
-
-      livox_point.set_offset_time(timestamp + pt_idx * 1000); // 递增时间偏移
-      livox_point.set_tag(pt_idx % 10);
-      livox_point.set_line(pt_idx % 32);
-
-      temp_points.push_back(livox_point);
+      // 设置其他属性
+      new_point->set_offset_time(timestamp + pt_idx * 1000);
+      new_point->set_tag(pt_idx % 10);
+      new_point->set_line(pt_idx % 32);
     }
 
     // 批量赋值 (高效方式)
@@ -97,6 +97,51 @@ int main() {
     return 1;
   }
   output.close();
+
+  std::string lidar_data_str;
+  if (!data_bag.SerializeToString(&lidar_data_str)) {
+    cerr << "Failed to write data data to " << filename << endl;
+    return 1;
+  }
+  const string filename_zstd =
+      "/home/siasun/code/Test/protocol_buff_test/lidar_data.zst";
+
+  // 3. 压缩数据
+  auto start_compress = std::chrono::high_resolution_clock::now();
+
+  // 计算压缩所需的最大空间
+  size_t compress_bound = ZSTD_compressBound(lidar_data_str.size());
+  std::vector<char> compressed_data(compress_bound);
+
+  // 执行压缩（级别3平衡速度和压缩率）
+  size_t compressed_size =
+      ZSTD_compress(compressed_data.data(), compress_bound,
+                    lidar_data_str.data(), lidar_data_str.size(), 1);
+
+  auto end_compress = std::chrono::high_resolution_clock::now();
+
+  // 检查压缩错误
+  if (ZSTD_isError(compressed_size)) {
+    std::cerr << "压缩失败: " << ZSTD_getErrorName(compressed_size)
+              << std::endl;
+    return 1;
+  }
+
+  // 调整向量大小到实际压缩大小
+  compressed_data.resize(compressed_size);
+
+  // 4. 保存压缩文件
+  std::ofstream comp_file(filename_zstd, std::ios::binary);
+  comp_file.write(compressed_data.data(), compressed_data.size());
+  comp_file.close();
+  cout << "Save Compressed File Success" << endl;
+
+  std::cout << "压缩耗时: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   end_compress - start_compress)
+                   .count()
+            << " ms\n";
+  std::cout << "压缩文件大小: " << compressed_size << " 字节\n";
 
   // 性能统计
   auto total_time = chrono::duration_cast<chrono::milliseconds>(
